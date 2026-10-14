@@ -1,0 +1,114 @@
+---
+title: "Module 2: Descriptive Statistics & Comparative Metrics"
+subtitle: "Introduction to Statistics for Social Sciences using R"
+author: "Neena Abimbola Albarus"
+date: "2026-10-13"
+format:
+  html:
+    toc: true
+    theme: cosmo
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+# Overview & Objectives
+
+In Module 2, we transition from data cleaning to basic statistical analysis. The primary goal of descriptive statistics is to summarize large collections of raw numbers into a few meaningful figures that describe two key features of a variable:
+
+1. **Central Tendency:** Where is the center or typical value located? We measure this using the **Mean** (arithmetic average) and **Median** (50th percentile).
+2. **Dispersion (Spread):** How clustered or spread out are the observations around that center? We measure this using **Standard Deviation** (SD), **Interquartile Range** (IQR), **Minimum**, and **Maximum**.
+
+---
+
+### Key Statistical Concepts for Social Scientists
+
+* **Sensitivity to Outliers:** The Mean and Standard Deviation are sensitive to extreme values (such as sudden disease outbreaks, wars, or historical shocks) because every single value enters directly into the math.
+* **Robust Statistics:** The Median and IQR rely on positional ranking rather than exact magnitude. This makes them robust metrics that insulate summary reports from extreme skewness.
+
+---
+
+# Step 1: Load Required Packages & Import Prepared Data
+
+We load `tidyverse` and source our clean data from Module 1 (`social_df`).
+
+```{r setup}
+# Load core libraries
+library(tidyverse)
+
+# Import clean dataset from Module 1
+life_df <- read_csv("/Users/yawdgyal/Desktop/R for github/Introduction-to-Statistics-for-Social-Sciences-using-R/data/life_expectancy_data.csv")
+
+clean_life <- life_df %>% 
+  select(Entity, Code, Year, `Life expectancy`) %>% 
+  rename(
+    country  = Entity,
+    code     = Code,
+    year     = Year,
+    life_exp = `Life expectancy`
+  )
+
+social_df <- clean_life %>% 
+  filter(
+    country %in% c("Canada", "United States", "Spain", "Jamaica", 
+                   "Brazil", "India", "Nigeria", "South Africa") & 
+    year >= 1950
+  )
+```
+
+---
+
+# Step 2: Global Summary Statistics (Entire Sample)
+
+We use `summarize()` to compute baseline metrics across all observations combined (1950–present).
+
+```{r overall-stats}
+# Calculate summary metrics across the entire pooled dataset
+overall_stats <- social_df %>% 
+  summarize(
+    total_obs  = n(),
+    mean_exp   = round(mean(life_exp, na.rm = TRUE), 1),
+    median_exp = round(median(life_exp, na.rm = TRUE), 1),
+    sd_exp     = round(sd(life_exp, na.rm = TRUE), 1),
+    iqr_exp    = round(IQR(life_exp, na.rm = TRUE), 1),
+    min_exp    = round(min(life_exp, na.rm = TRUE), 1),
+    max_exp    = round(max(life_exp, na.rm = TRUE), 1)
+  )
+
+# Display summary table
+overall_stats
+```
+
+---
+
+# Step 3: Grouped Summary Statistics by Nation
+
+In comparative social science, we group data by entity to uncover regional trajectories and disparities. We use `group_by(country)` followed by `summarize()` to calculate metrics for each of our eight case-study nations.
+
+```{r country-stats}
+# Group by country and calculate comparative descriptive statistics
+country_stats <- social_df %>% 
+  group_by(country) %>% 
+  summarize(
+    years_tracked = n(),
+    mean_exp      = round(mean(life_exp, na.rm = TRUE), 1),
+    median_exp    = round(median(life_exp, na.rm = TRUE), 1),
+    sd_exp        = round(sd(life_exp, na.rm = TRUE), 1),
+    iqr_exp       = round(IQR(life_exp, na.rm = TRUE), 1),
+    min_exp       = round(min(life_exp, na.rm = TRUE), 1),
+    max_exp       = round(max(life_exp, na.rm = TRUE), 1)
+  ) %>% 
+  arrange(desc(mean_exp)) # Rank countries from highest to lowest mean
+
+# Display country-level summary table
+country_stats
+```
+
+---
+
+# Summary & Substantive Takeaways
+
+1. **Cross-National Disparities:** Nations with long-standing high socio-economic development (Canada, Spain, United States) show the highest mean life expectancies (over 74+ years).
+2. **Post-1950 Progress:** Emerging economies (like India and Brazil) display higher standard deviations (`sd_exp`), reflecting rapid gains in public health infrastructure and dramatic upward shifts in life expectancy from 1950 to the present.
+3. **Robustness Check:** For most nations, the mean and median values are close, indicating a relatively smooth year-over-year increase across the post-WWII era without massive single-year distortions.

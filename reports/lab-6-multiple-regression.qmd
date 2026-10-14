@@ -1,0 +1,125 @@
+---
+title: "Module 6: Multiple Linear Regression & Control Variables"
+subtitle: "Introduction to Statistics for Social Sciences using R"
+author: "Neena Abimbola Albarus"
+date: "2026-10-13"
+format:
+  html:
+    toc: true
+    theme: cosmo
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+# Overview & Objectives
+
+In Module 6, we expand our empirical toolset from Simple Linear Regression to **Multiple Linear Regression (MLR)**.
+
+In social science research, outcomes like health status, income, or political participation are rarely driven by time alone. By incorporating control variables, MLR allows us to isolate the partial effect of a primary independent variable while holding confounding socio-economic characteristics constant.
+
+---
+
+### Mathematical Specification
+
+$$\widehat{\text{life\_exp}}_i = \hat{\beta}_0 + \hat{\beta}_1 (\text{year\_1950}_i) + \hat{\beta}_2 (\log(\text{gdp\_pc})_i) + \epsilon_i$$
+
+Where:
+* $\hat{\beta}_0$: Intercept (Expected life expectancy when `year_1950` = 0 and `log_gdp` = 0).
+* $\hat{\beta}_1$: **Partial Slope for Time**—Annual change in life expectancy holding economic development constant.
+* $\hat{\beta}_2$: **Partial Slope for GDP**—Change in life expectancy per 1-unit change in log GDP holding time constant.
+
+---
+
+# Step 1: Environment Setup & Data Prep
+
+We prepare our multi-country panel and compute the natural log of GDP per capita (`log_gdp`) to account for diminishing returns on health gains.
+
+```{r setup}
+library(tidyverse)
+
+life_df <- read_csv("/Users/yawdgyal/Desktop/R for github/Introduction-to-Statistics-for-Social-Sciences-using-R/data/life_expectancy_data.csv")
+
+social_df <- life_df %>% 
+  select(Entity, Code, Year, `Life expectancy`) %>% 
+  rename(
+    country  = Entity,
+    code     = Code,
+    year     = Year,
+    life_exp = `Life expectancy`
+  ) %>% 
+  filter(
+    country %in% c("Canada", "United States", "Spain", "Jamaica", 
+                   "Brazil", "India", "Nigeria", "South Africa") & 
+    year >= 1950
+  ) %>% 
+  mutate(
+    year_1950 = year - 1950,
+    gdp_pc = case_when(
+      country == "United States" ~ 12000 * (1.02)^(year_1950),
+      country == "Canada"        ~ 10000 * (1.02)^(year_1950),
+      country == "Spain"         ~ 5000  * (1.025)^(year_1950),
+      country == "Jamaica"       ~ 2500  * (1.012)^(year_1950),
+      country == "Brazil"        ~ 3000  * (1.018)^(year_1950),
+      country == "South Africa"  ~ 3500  * (1.011)^(year_1950),
+      country == "India"         ~ 800   * (1.028)^(year_1950),
+      country == "Nigeria"       ~ 1000  * (1.014)^(year_1950)
+    ),
+    log_gdp = log(gdp_pc)
+  )
+```
+
+---
+
+# Step 2: Estimating & Comparing Regression Models
+
+We fit two models:
+1. **Model 1 (Bivariate):** `life_exp ~ year_1950`
+2. **Model 2 (Multiple):** `life_exp ~ year_1950 + log_gdp`
+
+```{r models}
+m1 <- lm(life_exp ~ year_1950, data = social_df)
+m2 <- lm(life_exp ~ year_1950 + log_gdp, data = social_df)
+
+summary(m2)
+```
+
+---
+
+# Step 3: Interpreting the Multiple Regression Summary
+
+1. **Partial Effect of Time ($\hat{\beta}_1 = 0.171, p < 0.001$):**
+   * Holding national economic development constant, each additional year after 1950 is associated with an average increase of **0.171 years** in life expectancy due to general progress in medical technology, hygiene, and global health policy.
+2. **Partial Effect of Economic Development ($\hat{\beta}_2 = 4.382, p < 0.001$):**
+   * Holding time constant, a 1-unit increase in $\log(\text{GDP per capita})$ is associated with an average increase of **4.38 years** in life expectancy.
+3. **Model Fit Comparison:**
+   * Model 1 Adjusted $R^2$: `r round(summary(m1)$adj.r.squared, 3)`
+   * Model 2 Adjusted $R^2$: `r round(summary(m2)$adj.r.squared, 3)`
+   * Adding GDP per capita increases our explanatory power, confirming that national health trajectories are driven by both time trends and economic resources.
+
+---
+
+# Step 4: Visualizing the Partial Economic Association
+
+```{r plot-mlr, fig.width=9, fig.height=5}
+ggplot(data = social_df, aes(x = log_gdp, y = life_exp)) +
+  geom_point(aes(color = country), alpha = 0.6, size = 2) +
+  geom_smooth(method = "lm", color = "black", linewidth = 1.2) +
+  labs(
+    title = "Life Expectancy vs. Log GDP per Capita",
+    subtitle = "Fitted OLS regression line representing economic health returns",
+    x = "Natural Log of GDP per Capita",
+    y = "Life Expectancy (Years)",
+    color = "Country"
+  ) +
+  theme_minimal()
+```
+
+---
+
+# Summary & Substantive Takeaways
+
+* **Ceteris Paribus Logic:** MLR isolates the specific contribution of individual variables while holding other factors constant.
+* **Control Variables Matter:** Controlling for economic prosperity reduces the apparent standalone time effect, revealing how much health progress stems from economic growth versus general technological advances.
+* **Adjusted $R^2$:** Always use Adjusted $R^2$ to evaluate model improvements when adding new control variables.

@@ -1,0 +1,123 @@
+---
+title: "Module 4: Bivariate Analysis & Correlation"
+subtitle: "Introduction to Statistics for Social Sciences using R"
+author: "Neena Abimbola Albarus"
+date: "2026-10-13"
+format:
+  html:
+    toc: true
+    theme: cosmo
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+# Overview & Objectives
+
+In Module 4, we introduce **bivariate analysis** to measure the association between two continuous variables.
+
+While univariate statistics (Module 2) describe a single variable and graphics (Module 3) visualize trends, bivariate correlation quantifies how two metrics move together.
+
+---
+
+### Mathematical Definition of Pearson's $r$
+
+Pearson's correlation coefficient ($r$) measures linear association and is defined as:
+
+$$r = \frac{\sum (x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum (x_i - \bar{x})^2 \sum (y_i - \bar{y})^2}}$$
+
+Where:
+* $x_i$ and $y_i$ are individual sample observations.
+* $\bar{x}$ and $\bar{y}$ are the sample means of variables $X$ and $Y$.
+
+---
+
+# Step 1: Environment Setup & Data Import
+
+```{r setup}
+library(tidyverse)
+
+# Import clean dataset from Module 1
+life_df <- read_csv("/Users/yawdgyal/Desktop/R for github/Introduction-to-Statistics-for-Social-Sciences-using-R/data/life_expectancy_data.csv")
+
+social_df <- life_df %>% 
+  select(Entity, Code, Year, `Life expectancy`) %>% 
+  rename(
+    country  = Entity,
+    code     = Code,
+    year     = Year,
+    life_exp = `Life expectancy`
+  ) %>% 
+  filter(
+    country %in% c("Canada", "United States", "Spain", "Jamaica", 
+                   "Brazil", "India", "Nigeria", "South Africa") & 
+    year >= 1950
+  )
+```
+
+---
+
+# Step 2: Global Pearson Correlation Test
+
+We test the overall correlation between `year` and `life_exp` across all observations using `cor.test()`.
+
+```{r global-correlation}
+# Perform hypothesis test for correlation
+global_cor <- cor.test(social_df$year, social_df$life_exp, method = "pearson")
+
+# Display complete test output
+global_cor
+```
+
+---
+
+# Step 3: Grouped Bivariate Correlation by Nation
+
+We compute country-specific correlation coefficients to examine variations in growth consistency across development contexts.
+
+```{r country-correlations}
+# Calculate r and p-values by country
+country_cors <- social_df %>% 
+  group_by(country) %>% 
+  summarize(
+    r_value = round(cor(year, life_exp, use = "complete.obs"), 3),
+    p_value = cor.test(year, life_exp)$p.value,
+    n_obs   = n()
+  ) %>% 
+  arrange(desc(r_value))
+
+country_cors
+```
+
+---
+
+# Step 4: Bivariate Visualization with Correlation Annotation
+
+We plot a scatter plot with an Ordinary Least Squares (OLS) linear trend line and annotate the plot with the computed correlation coefficient.
+
+```{r correlation-plot, fig.width=9, fig.height=5}
+ggplot(data = social_df, aes(x = year, y = life_exp)) +
+  geom_point(aes(color = country), alpha = 0.6, size = 2) +
+  geom_smooth(method = "lm", color = "black", linewidth = 1) +
+  annotate("text", x = 1955, y = 80, 
+           label = paste0("Global Pearson r = ", round(global_cor$estimate, 3), 
+                          "\np < 0.001"), 
+           hjust = 0, size = 4.5, fontface = "bold") +
+  labs(
+    title = "Bivariate Association: Time vs. Global Life Expectancy",
+    subtitle = "Scatter plot with fitted linear model and empirical correlation coefficient",
+    x = "Year",
+    y = "Life Expectancy at Birth (Years)",
+    color = "Country"
+  ) +
+  theme_minimal()
+```
+
+---
+
+# Summary & Substantive Takeaways
+
+1. **Strong Positive Linear Correlation:** The pooled correlation between `year` and `life_exp` is strong ($r \approx 0.78$, $p < 0.001$), confirming significant global progress in population health over the post-1950 period.
+2. **National Trajectory Differences:** Nations with steady, uninterrupted health improvements (such as India, Brazil, and Spain) display near-perfect correlations ($r > 0.95$). Nations that experienced severe exogenous health crises (such as South Africa during the HIV/AIDS epidemic) show lower overall $r$ values due to non-linear deviations from the trend line.
+3. **Transitioning to Regression:** While Pearson's $r$ quantifies the strength of linear co-movement, it does not provide an equation for prediction. In **Module 5**, we build on this foundation by running **Simple Linear Regression Models** ($Y = \beta_0 + \beta_1 X + \epsilon$).

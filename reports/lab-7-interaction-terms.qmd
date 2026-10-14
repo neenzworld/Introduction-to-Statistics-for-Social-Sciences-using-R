@@ -1,0 +1,118 @@
+---
+title: "Module 7: Categorical Predictors & Interaction Terms"
+subtitle: "Introduction to Statistics for Social Sciences using R"
+author: "Neena Abimbola Albarus"
+date: "2026-10-13"
+format:
+  html:
+    toc: true
+    theme: cosmo
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+# Overview & Objectives
+
+In Module 7, we expand our regression modeling framework to evaluate categorical factors using **dummy variables** and **interaction terms**.
+
+Instead of assuming that all countries follow an identical trajectory over time, interaction terms allow us to test whether the **rate of health progress (slope)** differs significantly across regional groups.
+
+---
+
+# Step 1: Recoding Group Categories
+
+We create a factor variable `region` with `Global_South` set as the baseline reference category ($0$) and `High_Income` set as the comparison category ($1$).
+
+```{r setup}
+library(tidyverse)
+
+life_df <- read_csv("/Users/yawdgyal/Desktop/R for github/Introduction-to-Statistics-for-Social-Sciences-using-R/data/life_expectancy_data.csv")
+
+social_df <- life_df %>% 
+  select(Entity, Code, Year, `Life expectancy`) %>% 
+  rename(
+    country  = Entity,
+    code     = Code,
+    year     = Year,
+    life_exp = `Life expectancy`
+  ) %>% 
+  filter(
+    country %in% c("Canada", "United States", "Spain", "Jamaica", 
+                   "Brazil", "India", "Nigeria", "South Africa") & 
+    year >= 1950
+  ) %>% 
+  mutate(
+    year_1950 = year - 1950,
+    region = if_else(country %in% c("Canada", "United States", "Spain"), 
+                     "High_Income", "Global_South"),
+    region = factor(region, levels = c("Global_South", "High_Income"))
+  )
+```
+
+---
+
+# Step 2: Main Effects Dummy Variable Model
+
+We first estimate a model containing time (`year_1950`) and a group dummy (`region`).
+
+```{r dummy-model}
+m_dummy <- lm(life_exp ~ year_1950 + region, data = social_df)
+summary(m_dummy)
+```
+
+### Interpretation of Main Effects:
+* **Intercept ($\hat{\beta}_0 = 46.54$):** Baseline average life expectancy in 1950 for the reference group (`Global_South`).
+* **`regionHigh_Income` ($\hat{\beta}_2 = 19.04$):** In 1950, High-Income nations had an average life expectancy **19.04 years higher** than Global South nations.
+* **`year_1950` ($\hat{\beta}_1 = 0.354$):** Assumes both groups gained life expectancy at the exact same constant rate of 0.354 years per year.
+
+---
+
+# Step 3: Interaction Term Model ($X \times D$)
+
+To test if growth rates differed between regions, we fit an interaction model using `year_1950 * region`.
+
+```{r interaction-model}
+m_interact <- lm(life_exp ~ year_1950 * region, data = social_df)
+summary(m_interact)
+```
+
+---
+
+# Step 4: Interpreting Interaction Parameters
+
+1. **Reference Group (Global South) Slope:**
+   * Global South nations gained an average of **0.407 years of life expectancy per calendar year** ($\hat{\beta}_{\text{year\_1950}} = 0.407, p < 0.001$).
+2. **Comparison Group (High Income) Slope Adjustment:**
+   * The interaction term coefficient (`year_1950:regionHigh_Income = -0.142`, $p < 0.001$) shows that High-Income nations gained **0.142 fewer years per year** than Global South nations.
+   * High-Income annual growth rate: $0.407 - 0.142 = \mathbf{0.265\text{ years/year}}$.
+3. **Substantive Finding:**
+   * Global South nations experienced faster post-1950 growth rates than High-Income nations, confirming empirical **global health convergence** over the post-WWII era.
+
+---
+
+# Step 5: Visualizing Divergent Slopes
+
+```{r interaction-plot, fig.width=9, fig.height=5}
+ggplot(data = social_df, aes(x = year, y = life_exp, color = region)) +
+  geom_point(alpha = 0.4, size = 1.8) +
+  geom_smooth(method = "lm", linewidth = 1.2, se = TRUE) +
+  scale_color_manual(values = c("Global_South" = "darkorange", "High_Income" = "navy")) +
+  labs(
+    title = "Regional Health Progress: Interaction Model Fit",
+    subtitle = "Steeper slope for Global South indicates post-1950 health convergence",
+    x = "Year",
+    y = "Life Expectancy at Birth (Years)",
+    color = "Region"
+  ) +
+  theme_minimal()
+```
+
+---
+
+# Summary & Key Takeaways
+
+* **Dummy Variables:** Shift the regression **intercept** up or down across categories.
+* **Interaction Terms:** Change the regression **slope** across categories to test conditional relationships.
+* **Coding Tip in R:** The asterisk operator (`X * D`) automatically includes both main effects ($\beta_1 X + \beta_2 D$) and the interaction product ($\beta_3 X D$).

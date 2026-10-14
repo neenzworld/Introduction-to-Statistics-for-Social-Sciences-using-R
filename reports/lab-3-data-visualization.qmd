@@ -1,0 +1,293 @@
+---
+title: "Module 3: The Social Scientist's Visual Workshop"
+subtitle: "Introduction to Statistics for Social Sciences using R"
+author: "Neena Abimbola Albarus"
+date: "2026-10-13"
+format:
+  html:
+    toc: true
+    theme: cosmo
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+# Overview & Objectives
+
+In Module 3, we transition from summary statistics tables to data visualization using **`ggplot2`**, the graphics engine of the `tidyverse`.
+
+Data visualization is essential in quantitative social science. Charts allow us to evaluate longitudinal trends, identify structural shocks (such as epidemics or conflicts), assess distributional shapes, and compare developmental trajectories across countries.
+
+---
+
+### The Grammar of Graphics Framework
+
+`ggplot2` builds graphs layer-by-layer using a systematic logic known as the **Grammar of Graphics**:
+
+1. **Data (`data`):** The underlying tidy data frame (`social_df`).
+2. **Aesthetic Mapping (`aes`):** Connecting variables to visual attributes (e.g., mapping `year` to the $x$-axis, `life_exp` to the $y$-axis, and `country` to `color`).
+3. **Geometries (`geom_*`):** The visual representation of the data points (e.g., lines, points, bars, histograms, boxplots).
+4. **Statistical Transformations (`stats`):** On-the-fly calculations performed by R (e.g., calculating bin heights for histograms or Ordinary Least Squares trend lines).
+5. **Facets (`facet_wrap`):** Splitting a plot into side-by-side panels (small multiples).
+6. **Themes (`theme_*`):** Styling visual features like background color, grid lines, typography, and legend positioning.
+
+---
+
+# Setup & Data Hygiene Pipeline
+
+We load the `tidyverse` library and run our standardized Module 1 data hygiene pipeline to isolate our eight comparative case-study nations from 1950 to the present.
+
+```{r setup}
+# Load core tidyverse library
+library(tidyverse)
+
+# Import raw CSV dataset
+life_df <- read_csv("/Users/yawdgyal/Desktop/R for github/Introduction-to-Statistics-for-Social-Sciences-using-R/data/life_expectancy_data.csv")
+
+# Clean column headers and filter observations
+social_df <- life_df %>% 
+  select(Entity, Code, Year, `Life expectancy`) %>% 
+  rename(
+    country  = Entity,
+    code     = Code,
+    year     = Year,
+    life_exp = `Life expectancy`
+  ) %>% 
+  filter(
+    country %in% c("Canada", "United States", "Spain", "Jamaica", 
+                   "Brazil", "India", "Nigeria", "South Africa") & 
+    year >= 1950
+  )
+```
+
+---
+
+# Figure 1: Single-Line Chart (Focused Case Study)
+
+### Conceptual Explanation
+When examining a single nation, a single-line plot combined with point markers isolates historical trends without visual distraction from other entities. 
+
+* **`geom_line()`** connects annual observations sequentially across time.
+* **`geom_point()`** highlights the exact measurement points collected each year.
+
+```{r figure-1, fig.width=8, fig.height=4.5}
+# Filter dataset for India only
+india_df <- social_df %>% filter(country == "India")
+
+# Build plot
+ggplot(data = india_df, aes(x = year, y = life_exp)) +
+  geom_line(color = "firebrick", linewidth = 1.2) +
+  geom_point(color = "darkred", size = 1.8) +
+  labs(
+    title = "Figure 1: Life Expectancy Trajectory in India (1950–Present)",
+    subtitle = "Single-nation time series tracking post-independence progress",
+    x = "Year",
+    y = "Life Expectancy at Birth (Years)",
+    caption = "Source: Our World in Data"
+  ) +
+  theme_minimal()
+```
+
+**Substantive Takeaway:** India displays a steep, continuous positive trajectory—rising from under 36 years in 1950 to over 70 years today—reflecting post-independence expansion of public healthcare, sanitation, and infant vaccination programs.
+
+---
+
+# Figure 2: Multi-Line Overlay (Comparative Trends)
+
+### Conceptual Explanation
+Mapping a categorical variable to the `color` aesthetic (`aes(color = country)`) overlays multiple time series on a single coordinate system, allowing direct comparison of trajectories across nations.
+
+```{r figure-2, fig.width=9, fig.height=5}
+ggplot(data = social_df, aes(x = year, y = life_exp, color = country)) +
+  geom_line(linewidth = 1) +
+  labs(
+    title = "Figure 2: Comparative Life Expectancy Across 8 Nations",
+    subtitle = "Evaluating global health convergence across regions (1950–Present)",
+    x = "Year",
+    y = "Life Expectancy at Birth (Years)",
+    color = "Nation"
+  ) +
+  theme_minimal()
+```
+
+**Substantive Takeaway:** A structural inequality gap persists between advanced industrial economies (Canada, Spain, USA) and developing nations. However, developing nations exhibit steeper upward slopes over time. Notice the visible drop in South Africa during the 1990s and 2000s caused by the HIV/AIDS pandemic.
+
+---
+
+# Figure 3: Histogram (Frequency Distribution)
+
+### Conceptual Explanation
+Histograms assess the distribution shape, central tendency, and skewness of a single continuous variable. 
+
+* **`geom_histogram(binwidth = 2)`** groups observations into 2-year life expectancy bins.
+* **`geom_vline()`** adds a dashed vertical reference line indicating the overall sample mean.
+
+```{r figure-3, fig.width=8, fig.height=4.5}
+ggplot(data = social_df, aes(x = life_exp)) +
+  geom_histogram(binwidth = 2, fill = "steelblue", color = "white") +
+  geom_vline(aes(xintercept = mean(life_exp)), color = "red", linetype = "dashed", linewidth = 1) +
+  labs(
+    title = "Figure 3: Frequency Distribution of Pooled Life Expectancy",
+    subtitle = "Bin width = 2 years. Red dashed line indicates sample mean.",
+    x = "Life Expectancy at Birth (Years)",
+    y = "Count of Country-Year Observations"
+  ) +
+  theme_minimal()
+```
+
+**Substantive Takeaway:** The distribution is bimodal (showing two distinct peaks)—one around 50–55 years (historical/developing country observations) and another around 75–80 years (modern/developed country observations).
+
+---
+
+# Figure 4: Density Plot (Smoothed Group Distributions)
+
+### Conceptual Explanation
+Kernel density estimates provide a smooth continuous curve representing the probability distribution of a variable. 
+
+* **`alpha = 0.5`** adds semi-transparency so overlapping distributions remain visible.
+
+```{r figure-4, fig.width=8, fig.height=4.5}
+# Create a regional category variable for demonstration
+social_df <- social_df %>% 
+  mutate(region = if_else(country %in% c("Canada", "United States", "Spain"), 
+                          "High Income", "Global South"))
+
+ggplot(data = social_df, aes(x = life_exp, fill = region)) +
+  geom_density(alpha = 0.5) +
+  labs(
+    title = "Figure 4: Density Estimates of Life Expectancy by Region",
+    subtitle = "Comparing smoothed probability distributions across regional groupings",
+    x = "Life Expectancy (Years)",
+    y = "Density",
+    fill = "Regional Group"
+  ) +
+  theme_minimal()
+```
+
+**Substantive Takeaway:** High-income nations form a tight, right-skewed distribution centered above 75 years, while Global South nations cover a wider range, reflecting broad historical improvements over the post-1950 period.
+
+---
+
+# Figure 5: Comparative Boxplot (Spread & Outliers)
+
+### Conceptual Explanation
+Boxplots visualize five key summary statistics simultaneously: Minimum, First Quartile ($Q_1$), Median, Third Quartile ($Q_3$), and Maximum.
+
+* **`reorder(country, life_exp, FUN = median)`** ranks the countries on the axis by their median value.
+* **`coord_flip()`** turns vertical boxes horizontal for clear, non-overlapping category labels.
+
+```{r figure-5, fig.width=9, fig.height=5}
+ggplot(data = social_df, aes(x = reorder(country, life_exp, FUN = median), 
+                                  y = life_exp, fill = country)) +
+  geom_boxplot(alpha = 0.7, show.legend = FALSE) +
+  coord_flip() +
+  labs(
+    title = "Figure 5: Life Expectancy Distributions Ranked by Median",
+    subtitle = "Box bounds represent 25th-75th percentiles (IQR); center line is Median.",
+    x = "Nation (Ranked)",
+    y = "Life Expectancy at Birth (Years)"
+  ) +
+  theme_bw()
+```
+
+**Substantive Takeaway:** Wide boxes (India, Brazil) represent significant change and gain over the 70-year window. Narrow boxes (Canada, USA) indicate long-term stability at high baseline levels.
+
+---
+
+# Figure 6: Bar Chart of Means (Category Summary)
+
+### Conceptual Explanation
+When comparing a single calculated summary metric across categories, bar columns provide clear comparisons.
+
+* **`geom_col()`** plots pre-calculated summary values.
+* **`geom_text()`** labels each bar with its precise numeric value.
+
+```{r figure-6, fig.width=8, fig.height=4.5}
+# Calculate country mean life expectancies
+country_means <- social_df %>% 
+  group_by(country) %>% 
+  summarize(mean_exp = mean(life_exp, na.rm = TRUE))
+
+ggplot(data = country_means, aes(x = reorder(country, mean_exp), y = mean_exp)) +
+  geom_col(fill = "darkslategray", width = 0.65) +
+  geom_text(aes(label = round(mean_exp, 1)), hjust = -0.2, size = 3.5) +
+  coord_flip() +
+  ylim(0, 90) +
+  labs(
+    title = "Figure 6: Average Historical Life Expectancy (1950–Present)",
+    subtitle = "Overall sample mean per nation",
+    x = "Nation",
+    y = "Mean Life Expectancy (Years)"
+  ) +
+  theme_classic()
+```
+
+**Substantive Takeaway:** Aggregate bar rankings offer an intuitive view for executive summaries and policy reports, highlighting overall historical gaps between Western nations (Canada ~76.5 years) and Sub-Saharan African nations (Nigeria ~46.8 years).
+
+---
+
+# Figure 7: Bivariate Scatter Plot with OLS Trendline
+
+### Conceptual Explanation
+Scatter plots assess bivariate relationships between two continuous variables.
+
+* **`geom_point(alpha = 0.6)`** plots individual country-year coordinates.
+* **`geom_smooth(method = "lm")`** fits an Ordinary Least Squares (OLS) linear trendline with a 95% confidence interval shaded region.
+
+```{r figure-7, fig.width=9, fig.height=5}
+ggplot(data = social_df, aes(x = year, y = life_exp)) +
+  geom_point(aes(color = country), alpha = 0.6, size = 2) +
+  geom_smooth(method = "lm", color = "black", linetype = "dashed", se = TRUE) +
+  labs(
+    title = "Figure 7: Bivariate Scatter Plot & OLS Linear Fit",
+    subtitle = "Black line = Ordinary Least Squares linear regression model; shaded area = 95% CI",
+    x = "Year",
+    y = "Life Expectancy (Years)",
+    color = "Country"
+  ) +
+  theme_minimal()
+```
+
+**Substantive Takeaway:** Demonstrates a strong positive linear relationship ($r > 0$) between time and health improvements across the pooled sample.
+
+---
+
+# Figure 8: Faceted Panel View (Small Multiples)
+
+### Conceptual Explanation
+Faceted panel charts resolve visual clutter when displaying multiple overlapping group trends.
+
+* **`facet_wrap(~ country, ncol = 4)`** generates individual subplots for each country while maintaining identical scale axes.
+* **`geom_area()`** adds a shaded fill below each trend line.
+
+```{r figure-8, fig.width=10, fig.height=6}
+ggplot(data = social_df, aes(x = year, y = life_exp)) +
+  geom_area(fill = "lightblue", alpha = 0.4) +
+  geom_line(color = "navy", linewidth = 1) +
+  facet_wrap(~ country, ncol = 4) +
+  labs(
+    title = "Figure 8: Faceted Country Profiles (1950–Present)",
+    subtitle = "Faceted layout with shaded area plots for isolated panel analysis",
+    x = "Year",
+    y = "Life Expectancy (Years)"
+  ) +
+  theme_bw()
+```
+
+**Substantive Takeaway:** Faceting isolates country-specific events—such as South Africa's AIDS crisis recovery or Jamaica's steady development—without line overlap issues.
+
+---
+
+# Module 3 Summary & Geometry Selection Guide
+
+| Visual Geometry | `ggplot2` Function | Primary Use Case |
+| :--- | :--- | :--- |
+| **Single Line** | `geom_line() + geom_point()` | Isolating time series trends for a single entity. |
+| **Multi-Line** | `geom_line(aes(color = group))` | Overlapping multiple time series to compare trajectories. |
+| **Histogram** | `geom_histogram()` | Inspecting continuous distribution shape and modality. |
+| **Density Curve** | `geom_density(aes(fill = group))` | Comparing smooth probability distributions across groups. |
+| **Boxplot** | `geom_boxplot()` | Summarizing medians, spread (IQR), and identifying outliers. |
+| **Bar Chart** | `geom_col()` | Comparing pre-computed summary metrics across categories. |
+| **Scatter Plot** | `geom_point() + geom_smooth()` | Testing association and fitting regression lines between continuous variables. |
+| **Faceted Panels** | `facet_wrap(~ group)` | Decluttering complex datasets using small multiples. |

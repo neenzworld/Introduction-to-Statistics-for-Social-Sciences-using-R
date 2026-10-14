@@ -1,0 +1,227 @@
+---
+title: "Introduction to Statistics for Social Sciences using R"
+subtitle: "Modules 1–5: Data Hygiene to Linear Regression"
+author: "Neena Abimbola Albarus"
+date: "2026-10-13"
+format:
+  revealjs:
+    theme: sky
+    transition: slide
+    slide-number: true
+    toc: false
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Course Roadmap
+
+### Building Quantitative Social Science Skills
+
+- **Module 1:** Workspace Setup, Data Hygiene & Filtering
+- **Module 2:** Descriptive Statistics & Summary Tables
+- **Module 3:** The Visual Workshop (`ggplot2` Gallery)
+- **Module 4:** Correlation & Bivariate Analysis
+- **Module 5:** Simple Linear Regression Models (OLS)
+
+------------------------------------------------------------------------
+
+# Module 1: Workspace Infrastructure & Data Hygiene
+
+------------------------------------------------------------------------
+
+## Why Data Hygiene Matters
+
+Raw social science datasets (UN, World Bank, OWID) are designed for storage, not analysis.
+
+### Common Raw Data Issues:
+
+1.  **Irrelevant Cases:** Thousands of extra territories outside our study.
+2.  **Messy Column Headers:** Spaces, capitals, and obscure codes (e.g., `` `Life expectancy at birth (historical)` ``).
+3.  **Data Types:** Numbers stored as text strings or missing values (`NA`).
+
+------------------------------------------------------------------------
+
+## Data Hygiene Pipeline in R
+
+```{r setup-mod1}
+library(tidyverse)
+
+# 1. Ingest raw OWID CSV data
+life_df <- read_csv("/Users/yawdgyal/Desktop/R for github/Introduction-to-Statistics-for-Social-Sciences-using-R/data/life_expectancy_data.csv")
+
+# 2. Isolate target variables and standardize names
+# 3. Filter for 8 case-study nations (Post-1950)
+social_df <- life_df %>% 
+  select(Entity, Code, Year, `Life expectancy`) %>% 
+  rename(
+    country  = Entity,
+    code     = Code,
+    year     = Year,
+    life_exp = `Life expectancy`
+  ) %>% 
+  filter(
+    country %in% c("Canada", "United States", "Spain", "Jamaica", 
+                   "Brazil", "India", "Nigeria", "South Africa") & 
+    year >= 1950
+  )
+
+head(social_df, 3)
+```
+
+------------------------------------------------------------------------
+
+# Module 2: Descriptive Statistics & Summary Tables
+
+------------------------------------------------------------------------
+
+## Central Tendency vs. Dispersion
+
+Social science data often experiences exogenous shocks (wars, epidemics, recessions).
+
+- **Central Tendency:**
+  - **Mean (**$\bar{X}$): Sensitive to extreme outliers.
+  - **Median:** Robust metric based on positional ranking (50th percentile).
+- **Dispersion (Spread):**
+  - **Standard Deviation (**$SD$): Average deviation from the mean.
+  - **Interquartile Range (**$IQR$): Distance between 25th ($Q_1$) and 75th ($Q_3$) percentiles.
+
+------------------------------------------------------------------------
+
+## Grouped Comparative Metrics
+
+```{r mod2-summary}
+country_stats <- social_df %>% 
+  group_by(country) %>% 
+  summarize(
+    years      = n(),
+    mean_exp   = round(mean(life_exp), 1),
+    median_exp = round(median(life_exp), 1),
+    sd_exp     = round(sd(life_exp), 1),
+    iqr_exp    = round(IQR(life_exp), 1)
+  ) %>% 
+  arrange(desc(mean_exp))
+
+country_stats
+```
+
+------------------------------------------------------------------------
+
+# Module 3: The Social Scientist's Visual Workshop
+
+------------------------------------------------------------------------
+
+## The Grammar of Graphics (`ggplot2`)
+
+Plots are constructed systematically in layers:
+
+1.  **Data:** `social_df`
+2.  **Aesthetic Mapping (`aes`):** `x = year`, `y = life_exp`, `color = country`
+3.  **Geometries (`geom_*`):** `geom_line()`, `geom_boxplot()`, `geom_histogram()`
+4.  **Facets (`facet_wrap`):** Small multiples for comparative panels.
+
+------------------------------------------------------------------------
+
+## Comparative Trends & Faceting
+
+```{r mod3-plot, fig.width=10, fig.height=4}
+ggplot(data = social_df, aes(x = year, y = life_exp)) +
+  geom_line(color = "navy", linewidth = 0.8) +
+  facet_wrap(~ country, ncol = 4) +
+  labs(title = "Life Expectancy Trajectories (1950–Present)",
+       x = "Year", y = "Life Expectancy (Years)") +
+  theme_bw()
+```
+
+------------------------------------------------------------------------
+
+# Module 4: Bivariate Correlation Analysis
+
+------------------------------------------------------------------------
+
+## Pearson's Correlation Coefficient ($r$)
+
+$$r = \frac{\sum (x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum (x_i - \bar{x})^2 \sum (y_i - \bar{y})^2}}$$
+
+- **Range:** $-1.0$ (perfect negative) to $+1.0$ (perfect positive).
+- **Interpretation:**
+  - Measures strength and direction of linear co-movement.
+  - Testing $H_0: \rho = 0$ via `cor.test()`.
+
+------------------------------------------------------------------------
+
+## Estimating Pooled Correlation
+
+```{r mod4-cor}
+# Hypothesis test for linear association
+global_cor <- cor.test(social_df$year, social_df$life_exp, method = "pearson")
+
+cat("Pearson r: ", round(global_cor$estimate, 3), "\n")
+cat("p-value:   ", global_cor$p.value, "\n")
+```
+
+- **Takeaway:** Strong, positive, statistically significant linear co-movement ($r \approx 0.78, p < 0.001$).
+
+------------------------------------------------------------------------
+
+# Module 5: Simple Linear Regression Models
+
+------------------------------------------------------------------------
+
+## From Correlation to Regression
+
+Regression converts association into a **predictive equation**:
+
+$$\hat{Y}_i = \hat{\beta}_0 + \hat{\beta}_1 X_i$$
+
+- $\hat{Y}_i$ (Outcome): Life Expectancy.
+- $X_i$ (Predictor): Centered Year (`year_1950 = year - 1950`).
+- $\hat{\beta}_0$ (Intercept): Expected baseline value of $Y$ when $X = 0$ (Year 1950).
+- $\hat{\beta}_1$ (Slope): Estimated average change in $Y$ per 1-unit increase in $X$.
+
+------------------------------------------------------------------------
+
+## OLS Model Estimation in R
+
+```{r mod5-ols}
+# Center year at 1950 for baseline interpretability
+social_df <- social_df %>% mutate(year_1950 = year - 1950)
+
+# Estimate OLS model
+ols_model <- lm(life_exp ~ year_1950, data = social_df)
+summary(ols_model)$coefficients
+```
+
+- **Intercept (**$\hat{\beta}_0 = 53.68$): Average baseline life expectancy in 1950 was 53.7 years.
+- **Slope (**$\hat{\beta}_1 = 0.354$): Life expectancy increased by an average of **0.354 years per calendar year** across all 8 nations.
+
+------------------------------------------------------------------------
+
+## Visualizing OLS Regression Fit
+
+```{r mod5-plot, fig.width=9, fig.height=4}
+ggplot(data = social_df, aes(x = year, y = life_exp)) +
+  geom_point(aes(color = country), alpha = 0.4) +
+  geom_smooth(method = "lm", color = "black", linewidth = 1) +
+  labs(title = "OLS Model Fit: Life Expectancy ~ Time",
+       x = "Year", y = "Life Expectancy (Years)") +
+  theme_minimal()
+```
+
+------------------------------------------------------------------------
+
+# Summary & Next Steps
+
+### What We Have Mastered So Far:
+
+1.  Wrangled raw OWID datasets into clean tidy formats.
+2.  Computed robust central tendency and spread statistics.
+3.  Designed an 8-figure data visualization gallery.
+4.  Measured linear association using Pearson's $r$.
+5.  Estimated and interpreted OLS linear regression models.
+
+### Coming Up in Module 6:
+
+- **Multiple Linear Regression (MLR):** Adding economic indicators (GDP per capita) as control variables!

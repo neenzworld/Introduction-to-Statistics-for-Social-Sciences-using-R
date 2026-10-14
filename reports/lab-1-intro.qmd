@@ -1,0 +1,139 @@
+---
+title: "Module 1: Workspace Infrastructure & Data Hygiene"
+subtitle: "Introduction to Statistics for Social Sciences using R"
+author: "Neena Abimbola Albarus"
+date: "2026-10-13"
+format:
+  html:
+    toc: true
+    theme: cosmo
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+# Overview & Objectives
+
+Welcome to Module 1! In this module, we are laying the foundation for quantitative social science research using **R** and the **tidyverse**.
+
+Before we can calculate statistics, test hypotheses, or build graphs, we must first learn how to prepare raw data for analysis, which is a process data scientists call **data hygiene** or **data wrangling**. 
+
+### Why Data Hygiene Matters in Social Science
+
+Raw datasets collected from international organizations (like *Our World in Data*, the *World Bank*, or the *United Nations*) are created for storage, not for immediate analysis. They often contain:
+
+* **Far more data than we need** 
+Thousands of extra countries or historical years that are outside the scope of our study.
+
+* **Messy or inconsistent variable headers** 
+Header names with spaces, capital letters, or obscure codes (e.g., `Life expectancy at birth (historical)`) that make writing code slow and error-prone.
+
+* **Mixed data types** 
+Text stored where numbers should be, or missing values (`NA`) that can break calculations later.
+
+---
+
+### What We Will Accomplish in This Module
+
+In this lab, we will walk through a step-by-step pipeline to transform raw, messy data into a structured table ready for analysis:
+
+1. **Set Up the Workspace** 
+
+We load the `tidyverse` package—a collection of R tools specifically designed for data science.
+
+2. **Import Raw Data** 
+
+We read a raw CSV spreadsheet containing global life expectancy indicators into R's temporary working memory.
+
+3. **Clean & Standardize Variables** 
+
+We select *only* the columns we care about and rename them to short, simple, lowercase labels (like `country`, `year`, and `life_exp`).
+
+4. **Filter Observations** 
+
+We narrow down over 21,000 historical records to focus exclusively on **eight comparative case-study nations** (Canada, United States, Spain, Jamaica, Brazil, India, Nigeria, and South Africa) from **1950 to the present**.
+
+5. **Inspect Output** 
+
+We verify that our dataset is clean, correctly formatted, and ready for Module 2's statistical calculations.
+
+---
+
+# Step 1: Load Required Packages
+
+We load the `tidyverse` library, which contains `readr` (for importing CSV files), `dplyr` (for data wrangling), and `ggplot2` (for data visualization).
+
+```{r setup}
+# Load core tidyverse packages
+library(tidyverse)
+```
+
+---
+
+# Step 2: Import Raw Data
+
+We use `read_csv()` to import our raw life expectancy dataset into working memory.
+
+```{r import-data}
+# Read raw CSV file from local path
+life_df <- read_csv("/Users/yawdgyal/Desktop/R for github/Introduction-to-Statistics-for-Social-Sciences-using-R/data/life_expectancy_data.csv")
+```
+
+---
+
+# Step 3: Clean & Standardize Variable Names
+
+Raw dataset headers often contain spaces or capital letters. We use `select()` to isolate relevant columns and `rename()` to standardize headers into lowercase format (`new_name = old_name`).
+
+```{r clean-names}
+# Select target variables and rename columns
+clean_life <- life_df %>% 
+  select(Entity, Code, Year, `Life expectancy`) %>% 
+  rename(
+    country  = Entity,
+    code     = Code,
+    year     = Year,
+    life_exp = `Life expectancy`
+  )
+```
+
+---
+
+# Step 4: Subsetting Data for Case Study Nations
+
+We filter our observations to isolate eight comparative case study nations from 1950 to the present.
+
+```{r filter-data}
+# Filter for case study countries post-1950
+social_df <- clean_life %>% 
+  filter(
+    country %in% c("Canada", "United States", "Spain", "Jamaica", 
+                   "Brazil", "India", "Nigeria", "South Africa") & 
+    year >= 1950
+  )
+```
+
+---
+
+# Step 5: Verify & Inspect Clean Data
+
+Finally, we inspect the top six rows of our cleaned dataset.
+
+```{r inspect-data}
+# Preview clean dataframe
+head(social_df)
+```
+
+# Summary & Key Takeaways
+
+By running this data hygiene pipeline, we successfully transformed a massive, unstructured global dataset into a clean, targeted data frame (`social_df`) ready for quantitative analysis.
+
+### What We Accomplished:
+* **Standardized Variable Names:** Replaced unwieldy headers like `` `Life expectancy at birth (historical)` `` with `life_exp`. This eliminates space syntax issues and makes future coding much faster.
+* **Focused Comparative Scope:** Filtered over 21,000 records down to our eight specific case-study nations (Canada, United States, Spain, Jamaica, Brazil, India, Nigeria, and South Africa) across the post-1950 era.
+* **Verified Data Types:** Confirmed that text (`<chr>`) and numeric (`<dbl>`) variables are stored correctly in memory.
+
+---
+
+### What's Next?
+Our clean dataset is now stored in memory. In **Module 2: Descriptive Statistics**, we will use `social_df` to compute measures of central tendency (mean, median) and dispersion (standard deviation, IQR) to compare population health trajectories across these nations!

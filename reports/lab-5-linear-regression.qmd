@@ -1,0 +1,130 @@
+---
+title: "Module 5: Simple Linear Regression Models"
+subtitle: "Introduction to Statistics for Social Sciences using R"
+author: "Neena Abimbola Albarus"
+date: "2026-10-13"
+format:
+  html:
+    toc: true
+    theme: cosmo
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+# Overview & Objectives
+
+In Module 5, we introduce **Ordinary Least Squares (OLS) Simple Linear Regression**, the foundational modeling tool in quantitative social research.
+
+While correlation (Module 4) quantifies the strength of a linear relationship, regression provides a specific mathematical equation:
+
+$$\hat{Y}_i = \hat{\beta}_0 + \hat{\beta}_1 X_i$$
+
+---
+
+# Step 1: Data Preparation & Variable Centering
+
+We center `year` at 1950 (`year_1950 = year - 1950`) so that our estimated intercept ($\hat{\beta}_0$) represents baseline predicted life expectancy in 1950.
+
+```{r setup}
+library(tidyverse)
+
+life_df <- read_csv("/Users/yawdgyal/Desktop/R for github/Introduction-to-Statistics-for-Social-Sciences-using-R/data/life_expectancy_data.csv")
+
+social_df <- life_df %>% 
+  select(Entity, Code, Year, `Life expectancy`) %>% 
+  rename(
+    country  = Entity,
+    code     = Code,
+    year     = Year,
+    life_exp = `Life expectancy`
+  ) %>% 
+  filter(
+    country %in% c("Canada", "United States", "Spain", "Jamaica", 
+                   "Brazil", "India", "Nigeria", "South Africa") & 
+    year >= 1950
+  ) %>% 
+  mutate(year_1950 = year - 1950)
+```
+
+---
+
+# Step 2: Estimating the Pooled Regression Model
+
+We fit a simple linear model using R's `lm()` function and display the model summary table.
+
+```{r ols-model}
+# Fit simple linear model: life_exp = b0 + b1*(year_1950)
+ols_model <- lm(life_exp ~ year_1950, data = social_df)
+
+# Print standard R regression output
+summary(ols_model)
+```
+
+---
+
+# Step 3: Detailed Breakdown of `summary(lm)` Output
+
+### 1. Model Coefficients ($\hat{\beta}$)
+* **Intercept ($\hat{\beta}_0 = 53.68$):** In 1950 (`year_1950 = 0`), the estimated average life expectancy across the eight sample countries was **53.68 years**.
+* **Slope ($\hat{\beta}_1 = 0.354$):** For every additional calendar year after 1950, average global life expectancy increased by **0.354 years** (or ~4.2 months per year).
+
+### 2. Hypothesis Testing & Significance
+* **$t$-statistic ($29.62$) and $p$-value ($< 0.001$):** Because $p < 0.05$, we reject the null hypothesis ($H_0: \beta_1 = 0$) and conclude that time has a statistically significant positive effect on life expectancy.
+
+### 3. Model Fit Statistics ($R^2$)
+* **Multiple $R^2 = 0.607$:** Time explains **60.7%** of the overall variation in life expectancy across these eight countries.
+
+---
+
+# Step 4: Comparing Country-Specific OLS Growth Rates
+
+To evaluate national variation, we estimate individual OLS models for each country.
+
+```{r country-regressions}
+country_summary <- social_df %>% 
+  group_by(country) %>% 
+  summarize(
+    intercept_1950 = round(coef(lm(life_exp ~ year_1950))[1], 2),
+    annual_gain_years = round(coef(lm(life_exp ~ year_1950))[2], 3),
+    r_squared = round(summary(lm(life_exp ~ year_1950))$r.squared, 3)
+  ) %>% 
+  arrange(desc(annual_gain_years))
+
+country_summary
+```
+
+---
+
+# Step 5: Visualizing the OLS Model Fit
+
+```{r regression-plot, fig.width=9, fig.height=5}
+b0 <- coef(ols_model)[1]
+b1 <- coef(ols_model)[2]
+r2 <- summary(ols_model)$r.squared
+
+ggplot(data = social_df, aes(x = year, y = life_exp)) +
+  geom_point(aes(color = country), alpha = 0.5, size = 2) +
+  geom_smooth(method = "lm", color = "black", linewidth = 1.2, se = TRUE) +
+  annotate("label", x = 1955, y = 80, 
+           label = paste0("Pooled OLS Equation:\nLife Exp = ", round(b0, 2), " + ", round(b1, 3), " × (Year - 1950)\n",
+                          "R² = ", round(r2, 3), " (p < 0.001)"),
+           hjust = 0, fill = "white", size = 4) +
+  labs(
+    title = "OLS Regression: Predicting Life Expectancy Trajectories",
+    subtitle = "Solid black line represents OLS fitted values; shaded area represents 95% CI",
+    x = "Year",
+    y = "Life Expectancy at Birth (Years)",
+    color = "Country"
+  ) +
+  theme_minimal()
+```
+
+---
+
+# Module 5 Summary & Takeaways
+
+1. **Parameter Interpretation:** $\hat{\beta}_0$ sets the baseline intercept, while $\hat{\beta}_1$ quantifies the annual marginal rate of change.
+2. **Variable Centering:** Centering predictors improves baseline parameter interpretability without changing the slope ($\hat{\beta}_1$) or model fit ($R^2$).
+3. **Next Steps:** In **Module 6**, we will extend this foundation to **Multiple Linear Regression (MLR)** to control for economic predictors (like GDP per capita) alongside temporal trends.
